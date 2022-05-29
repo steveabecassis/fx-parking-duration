@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+spec:
+  replicas:
+  selector:
+  strategy:
+  template:
+    metadata:
+      labels:
+      annotations:
+    spec:
+      volumes:
+      containers:
+        - name:
+          image:
+          imagePullPolicy:
+          ports:
+          args:
+          volumeMounts:
+          livenessProbe:
+          readinessProbe:
+          env:
+          resources:
+

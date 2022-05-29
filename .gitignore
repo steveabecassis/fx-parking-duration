@@ -1,0 +1,6 @@
+.idea
+
+# Helm
+helm/project/charts/*.tgz
+helm/project/*.tgz
+helm/project/requirements.lock

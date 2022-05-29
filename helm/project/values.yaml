@@ -1,0 +1,69 @@
+fx-generic:
+  ### Change the following if the service name is different than the repo name in github
+  nameOverride: PROJECT_NAME
+
+  # Obtain serviceAccountName for from EKS cluster
+  eksClusterServiceAccountName:
+    select: false
+    clusterName: stag-cluster-1
+
+  gpu:
+    clusterGPUCapability: false
+    request: false
+
+  # Resources to assign to pod
+  # Adjust according to the service requirements
+  resources:
+    requests:
+      cpu: "400m"
+      memory: "2Gi"
+    limits:
+      cpu: "1"
+      memory: "3Gi"
+
+  # Autoscaling
+  # These are good starting defaults for most services - change if necessary
+  autoscaling:
+    enabled: true
+    stag:
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: false
+      metricName: # Set this to a name of a metric you would like to scale on instead of scaling on CPU utilization
+      targetAverageValue: # Target value for the metric
+      matchLabels: # Change or add additional labels to narrow the coverage of the metric
+        environment: staging
+    prod:
+      minReplicas: 1
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: false      # Remove the value if you would like to scale based on a metric instead
+      metricName: # Set this to a name of a metric you would like to scale on instead of scaling on CPU utilization
+      targetAverageValue: # Target value for the metric
+      matchLabels: # Change or add additional labels to narrow the coverage of the metric
+        environment: production
+
+  ### ****
+  ### Dynamic environment variables config
+  ### These are extractor specific- make sure these are configured correctly according to your extractor!
+  ### ****
+
+  environmentVariables:
+    WORKER_STEP: "DataExtraction1"
+    WORKER_NAME: "ParkingDuration"
+    WHICH_NEXUS: "nexus-pe"
+    TRUNCATE_INCOMING_MESSAGE:
+      stag: "False"
+      prod: "True"
+    TRUNCATE_OUTGOING_MESSAGE:
+      stag: "False"
+      prod: "True"
+    MONITORED_IN_NEXUS:
+      stag: "True"
+      prod: "True"
+
+
+  image:
+    repository: 395499912268.dkr.ecr.eu-west-1.amazonaws.com
+    name: IMAGE_NAME
+    tag: IMAGE_TAG
+    pullPolicy: IfNotPresent

@@ -1,0 +1,34 @@
+# authenticate pip with ECR auto (not recommended)
+aws codeartifact login --tool pip --repository vatbox-py --domain vatbox --domain-owner 395499912268
+
+# manual pip authentication (unix)
+export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain vatbox --domain-owner 395499912268 --query authorizationToken --output text`
+python3 -m pip config set global.index-url https://pypi.python.org/simple
+python3 -m pip config set global.extra-index-url https://aws:$CODEARTIFACT_AUTH_TOKEN@vatbox-395499912268.d.codeartifact.eu-west-1.amazonaws.com/pypi/vatbox-py/simple/
+
+# manual pip authentication (windows)
+$env:CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain vatbox --domain-owner 395499912268 --query authorizationToken --output text)
+python -m pip config set global.index-url https://pypi.python.org/simple
+python -m pip config set global.extra-index-url https://aws:$env:CODEARTIFACT_AUTH_TOKEN@vatbox-395499912268.d.codeartifact.eu-west-1.amazonaws.com/pypi/vatbox-py/simple/
+
+# remove ECR repo from pip (or python3)
+python -m pip config unset global.extra-index-url
+
+# install beehive-infra (or python3)
+python -m pip install --upgrade beehive-infra
+
+# twine
+aws codeartifact login --tool twine --repository vatbox-py --domain vatbox --domain-owner 395499912268
+
+# default pypi index URI
+https://pypi.python.org/simple
+
+# ECR login & build image example
+eval $(aws ecr get-login --no-include-email)
+docker image build -t 395499912268.dkr.ecr.eu-west-1.amazonaws.com/fx-parking-duration:0.0.1 .
+
+# deploy to prod via helm - from vatbox-env as root
+helm repo update; helm upgrade --kube-context="production.k8s.vatbox.com" -i -f main/values-prod.yaml fx-parking-duration vatbox-helm-repo/fx-parking-duration
+
+# delete release via helm
+helm del --kube-context="production.k8s.vatbox.com" fx-parking-duration

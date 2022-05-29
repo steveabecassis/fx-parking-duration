@@ -1,0 +1,22 @@
+# Mongo connection
+value: mongodb://$(MONGO_CRED)@(MONGO_SERVERS)/<db-name>?authSource=admin
+
+# Redis Host
+value: $(ENV_REDIS)
+
+# Central bucket
+value : $(ENV_BUCKET)
+
+# Elastic Search
+value: $(ENV_ELASTIC)
+
+# Environment/Namespace
+$(DEPLOY_ENV)
+
+# Terraform (AWS) namespace specific prefix
+$(AWS_PREFIX)
+
+# Custome Labels
+  app: {{ include "template.name" . }}
+{{- toYaml .Values.global.customLabels | nindent 4 }}
+

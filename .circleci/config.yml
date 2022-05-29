@@ -1,0 +1,114 @@
+version: 2.1
+
+orbs:
+  vb_helm_build: vatbox/vb_helm_build@volatile
+  k3d: devopsspiral/k3d@0.1.5
+
+workflows:
+  build-deploy:
+    jobs:
+      - validate-test:
+          context:
+            - env-global
+      - build:
+          requires:
+            - validate-test
+          context:
+            - env-global
+# comment / uncomment build-rest to create rest extractor flavor for deployment
+#      - build-rest:
+#          requires:
+#            - build
+#          context:
+#            - env-global
+      - test-helm-chart:
+          context: env-global
+          requires:
+            - build
+
+jobs:
+  validate-test:
+    working_directory: ~/build
+    docker:
+      - image: 395499912268.dkr.ecr.eu-west-1.amazonaws.com/beehive-extractor-base
+        user: root
+    #    resource_class: large # set to the required size
+    steps:
+      - checkout
+      - run:
+          name: Authenticate with AWS CodeArtifact and install/download dependencies
+          command: |
+            export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain vatbox --domain-owner 395499912268 --query authorizationToken --output text` && \
+            python3 -m pip config set global.index-url https://pypi.python.org/simple && \
+            python3 -m pip config set global.extra-index-url https://aws:$CODEARTIFACT_AUTH_TOKEN@vatbox-395499912268.d.codeartifact.eu-west-1.amazonaws.com/pypi/vatbox-py/simple/
+            python3 -m pip install -r requirements.txt
+            python3 -m pip install --upgrade beehive-infra
+            python3 get_dependencies.py
+      - run:
+          name: Run unittests
+          command: |
+            python3 -m unittest extractor.test_pre_build_suite.TestPreBuild
+#            comment/ uncomment to activate unit tests for REST extractor flavor:
+#            python3 -m unittest extractor.test_pre_build_suite_rest_worker.TestPreBuild
+
+  build:
+    environment:
+      CURRENT_COMMIT: <<pipeline.git.revision>>
+    docker:
+      - image: cimg/python:3.9.0
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+          docker_layer_caching: true
+      - vb_helm_build/aws_setup:
+          version: v2
+      - vb_helm_build/check_source_changes
+      - vb_helm_build/install_k8s
+      - vb_helm_build/generate_names_tags:
+          mode: python
+      - vb_helm_build/build_image
+      - vb_helm_build/setup_helm
+      - vb_helm_build/helm_build_and_push
+
+  test-helm-chart:
+    description: Test Helm Chart
+    machine:
+      image: 'ubuntu-2004:202010-01'
+    environment:
+      KUBECTL_VERSION: 1.21.2
+      HELM_VERSION: 3.7.0
+      VALUES_FILE: "s3://vatbox-build-info/helm/values-templates/values-test-prod.yml"
+    steps:
+      - checkout
+
+      - vb_helm_build/setup_helm
+
+      - k3d/k3d-helpers
+
+      - k3d/k3d-up:
+          cluster-name: circleci-k8s-1
+          k3s-version: v1.21.2-k3s1
+
+  build-rest:
+    environment:
+      CURRENT_COMMIT: <<pipeline.git.revision>>
+    docker:
+      - image: cimg/python:3.9.0
+        user: root
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+          docker_layer_caching: true
+      - vb_helm_build/aws_setup:
+          version: v2
+      - vb_helm_build/check_source_changes
+      - vb_helm_build/install_k8s
+      - vb_helm_build/generate_variant_names_tags:
+          mode: python
+          chartName: fx-parking-duration-rest
+      - vb_helm_build/build_image
+      - vb_helm_build/setup_helm
+      - vb_helm_build/helm_build_and_push
+
